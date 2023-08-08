@@ -1,2 +1,5 @@
-# MODAQ-Docs-Dev
- Repo for editing the contents of the MODAQ Docs webpage
+# MODAQ Black Box Code and Documentation. 
+
+MODAQ-BB documentation is available here: https://nrel.github.io/MODAQ-BB/
+
+Source code should be available late 2023
