@@ -8,16 +8,16 @@
   
   
   
-  <link rel="shortcut icon" href="/MODAQ-BB/img/favicon.ico">
+  <link rel="shortcut icon" href="./img/favicon.ico">
   <title>MODAQ BlackBox Docs</title>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Lato:400,700|Roboto+Slab:400,700|Inconsolata:400,700" />
 
-  <link rel="stylesheet" href="/MODAQ-BB/css/theme.css" />
-  <link rel="stylesheet" href="/MODAQ-BB/css/theme_extra.css" />
+  <link rel="stylesheet" href="./css/theme.css" />
+  <link rel="stylesheet" href="./css/theme_extra.css" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.5.0/styles/github.min.css" />
   
-  <script src="/MODAQ-BB/js/jquery-2.1.1.min.js" defer></script>
-  <script src="/MODAQ-BB/js/modernizr-2.8.3.min.js" defer></script>
+  <script src="./js/jquery-2.1.1.min.js" defer></script>
+  <script src="./js/modernizr-2.8.3.min.js" defer></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.5.0/highlight.min.js"></script>
   <script>hljs.initHighlightingOnLoad();</script> 
 </head>
@@ -30,9 +30,9 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
     <div class="wy-side-scroll">
       <div class="wy-side-nav-search">
-        <a href="/MODAQ-BB/." class="icon icon-home"> MODAQ BlackBox Docs</a>
+        <a href="./." class="icon icon-home"> MODAQ BlackBox Docs</a>
         <div role="search">
-  <form id ="rtd-search-form" class="wy-form" action="/MODAQ-BB//search.html" method="get">
+  <form id ="rtd-search-form" class="wy-form" action="./search.html" method="get">
       <input type="text" name="q" placeholder="Search docs" title="Type search term here" />
   </form>
 </div>
@@ -40,39 +40,39 @@
 
       <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
                 <ul>
-                    <li class="toctree-l1"><a class="reference internal" href="/MODAQ-BB/.">Home</a>
+                    <li class="toctree-l1"><a class="reference internal" href="./.">Home</a>
                     </li>
                 </ul>
                 <ul>
-                    <li class="toctree-l1"><a class="reference internal" href="/MODAQ-BB/h_architecture/">Hardware Overview</a>
+                    <li class="toctree-l1"><a class="reference internal" href="./h_architecture/">Hardware Overview</a>
                     </li>
                 </ul>
                 <ul>
-                    <li class="toctree-l1"><a class="reference internal" href="/MODAQ-BB/s_architecture/">Software Overview</a>
+                    <li class="toctree-l1"><a class="reference internal" href="./s_architecture/">Software Overview</a>
                     </li>
                 </ul>
                 <ul>
-                    <li class="toctree-l1"><a class="" href="/MODAQ-BB/ref_design.md">Reference Design Manual</a>
+                    <li class="toctree-l1"><a class="" href="./ref_design.md">Reference Design Manual</a>
                     </li>
                 </ul>
                 <ul>
-                    <li class="toctree-l1"><a class="reference internal" href="/MODAQ-BB/dev_modules/">Optional Modules</a>
+                    <li class="toctree-l1"><a class="reference internal" href="./dev_modules/">Optional Modules</a>
                     </li>
                 </ul>
                 <ul>
-                    <li class="toctree-l1"><a class="reference internal" href="/MODAQ-BB/tech_ref/">Technical Reference</a>
+                    <li class="toctree-l1"><a class="reference internal" href="./tech_ref/">Technical Reference</a>
                     </li>
                 </ul>
                 <ul>
-                    <li class="toctree-l1"><a class="reference internal" href="/MODAQ-BB/FAQ/">FAQ</a>
+                    <li class="toctree-l1"><a class="reference internal" href="./FAQ/">FAQ</a>
                     </li>
                 </ul>
                 <ul>
-                    <li class="toctree-l1"><a class="reference internal" href="/MODAQ-BB/links/">Useful Links</a>
+                    <li class="toctree-l1"><a class="reference internal" href="./links/">Useful Links</a>
                     </li>
                 </ul>
                 <ul>
-                    <li class="toctree-l1"><a class="reference internal" href="/MODAQ-BB/about/">About</a>
+                    <li class="toctree-l1"><a class="reference internal" href="./about/">About</a>
                     </li>
                 </ul>
       </div>
@@ -84,7 +84,7 @@
       
       <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
         <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
-        <a href="/MODAQ-BB/.">MODAQ BlackBox Docs</a>
+        <a href="./.">MODAQ BlackBox Docs</a>
       </nav>
 
       
@@ -92,7 +92,7 @@
         <div class="rst-content">
           <div role="navigation" aria-label="breadcrumbs navigation">
   <ul class="wy-breadcrumbs">
-    <li><a href="/MODAQ-BB/.">Docs</a> &raquo;</li>
+    <li><a href="./.">Docs</a> &raquo;</li>
     
     
     <li class="wy-breadcrumbs-aside">
@@ -107,9 +107,16 @@
             <div class="section">
               
 
-  <h1 id="404-page-not-found">404</h1>
+  <h1 id="search">Search Results</h1>
 
-  <p><strong>Page not found</strong></p>
+  <form id="content_search" action="search.html">
+    <span role="status" aria-live="polite" class="ui-helper-hidden-accessible"></span>
+    <input name="q" id="mkdocs-search-query" type="text" class="search_input search-query ui-autocomplete-input" placeholder="Search the Docs" autocomplete="off" autofocus title="Type search term here">
+  </form>
+
+  <div id="mkdocs-search-results" class="search-results" data-no-results-text="No results found">
+    Searching...
+  </div>
 
 
             </div>
@@ -141,10 +148,10 @@
     
   </span>
 </div>
-    <script>var base_url = '/MODAQ-BB/';</script>
-    <script src="/MODAQ-BB/js/theme_extra.js" defer></script>
-    <script src="/MODAQ-BB/js/theme.js" defer></script>
-      <script src="/MODAQ-BB/search/main.js" defer></script>
+    <script>var base_url = '.';</script>
+    <script src="./js/theme_extra.js" defer></script>
+    <script src="./js/theme.js" defer></script>
+      <script src="./search/main.js" defer></script>
     <script defer>
         window.onload = function () {
             SphinxRtdTheme.Navigation.enable(true);
