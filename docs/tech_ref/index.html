@@ -59,15 +59,15 @@
                     </li>
                 </ul>
                 <ul>
-                    <li class="toctree-l1"><a class="" href="../ref_design.md">Reference Design Manual</a>
-                    </li>
-                </ul>
-                <ul>
                     <li class="toctree-l1"><a class="reference internal" href="../dev_modules/">Optional Modules</a>
                     </li>
                 </ul>
                 <ul class="current">
                     <li class="toctree-l1 current"><a class="reference internal current" href="./">Technical Reference</a>
+    <ul class="current">
+    <li class="toctree-l2"><a class="reference internal" href="#pressure-housing">Pressure housing</a>
+    </li>
+    </ul>
                     </li>
                 </ul>
                 <ul>
@@ -115,7 +115,17 @@
           <div role="main">
             <div class="section">
               
-                
+                <h1 id="technical-reference-manual">Technical Reference Manual</h1>
+<h2 id="pressure-housing">Pressure housing</h2>
+<p>The MODAQ BB design presented here uses the BlueRobotics <a href="https://bluerobotics.com/store/watertight-enclosures/wte-vp/#tube" target="_blank">aluminum subsea housing</a> with an inner diameter of 75mm (3") and 240mm (9.5") in length. For radio transparency, we selected the acrylic blank endcap for one end of the housing. Acrylic parts affect the maximum depth rating of the system, however it was necessary for the GPS and satellite radios to function. </p>
+<p>Maximum possible depth rating for BlueRobotics housings is 950m. The following selections will impact the depth rating:</p>
+<ul>
+<li>Flat acrylic endcap derate depth to 400m</li>
+<li>Dome acrylic endcap derate depth to 750m</li>
+<li>Aluminum endcap full depth rating 950m</li>
+<li>Swap aluminum tube for transparent acrylic, derates from 125m to 300m depending on length of tube</li>
+</ul>
+<p>For completely submerged applications, </p>
               
             </div>
           </div>
