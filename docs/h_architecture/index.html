@@ -69,23 +69,11 @@
     </li>
     <li class="toctree-l3"><a class="reference internal" href="#storage">Storage</a>
     </li>
-    <li class="toctree-l3"><a class="reference internal" href="#adc">ADC</a>
-    </li>
-    <li class="toctree-l3"><a class="reference internal" href="#strain-bridge">Strain Bridge</a>
-    </li>
         </ul>
     </li>
     <li class="toctree-l2"><a class="reference internal" href="#power">Power</a>
     </li>
-    <li class="toctree-l2"><a class="reference internal" href="#schematic">Schematic</a>
-    </li>
     <li class="toctree-l2"><a class="reference internal" href="#enclosure">Enclosure</a>
-        <ul>
-    <li class="toctree-l3"><a class="reference internal" href="#tube">tube</a>
-    </li>
-    <li class="toctree-l3"><a class="reference internal" href="#3d-bits">3d bits</a>
-    </li>
-        </ul>
     </li>
     </ul>
                     </li>
@@ -169,19 +157,15 @@
 <p>The development of MODAQ BlackBox began at a time when computer chip shortages were reaching its peak and many popular microcontroller (MCU) and microprocessor development platforms were in tight supply or had excessive markups. We looked at a number of MCU options that met our goals that managed to largely avoid the supply and pricing issues, such as Arduino, Teensy, and STM32, but ultimately selected the ESP32 platform. While we could have used any of the other platforms mentioned (and we did test them), the ESP32 has strong adoption in the Maker Community and there are commercial industrial controllers and PLCs based on the ESP32. </p>
 <p>What we like about the ESP32 is its very low cost, tiny form factor, fast 240 MHz dual-core processor, large system memory, <a href="https://www.freertos.org/index.html" target="_blank">FreeRTOS</a> support, ample I/O options, and selectable power and sleep modes. In addition, the ESP32 System on a Chip (SoC) is available by itself for inclusion in custom circuit board designs or as a development board with breadboard/protoboard friendly pinouts, USB controller, and a voltage regulator. There are numerous vendors, including <a href="https://www.adafruit.com/search?q=esp32" target="_blank">Adafruit</a> and <a href="https://www.sparkfun.com/search/results?term=esp32" target="_blank">Sparkfun</a>, that offer custom development board variants, but most follow a similar a similar design to the "<a href="https://www.digikey.com/en/products/detail/espressif-systems/ESP32-DEVKITC-32E/12091810" target="_blank">DevKit C</a>" layout, which is what we used. </p>
 <h2 id="modules">Modules</h2>
+<p>At this stage in the BB development, we're using a development board for the MCU and breakout boards for the peripherals. This gives us broad flexibility for the functionality of any particular build. </p>
+<p>We are considering creating a PCB design in EDA software that would use raw components that would theoretically reduce power consumption, main board size, and build times, while improving reliability and ruggedness. </p>
 <h3 id="rtc">RTC</h3>
 <h3 id="gps">GPS</h3>
 <h3 id="iridium-modem">Iridium Modem</h3>
 <h3 id="imu">IMU</h3>
 <h3 id="storage">Storage</h3>
-<h3 id="adc">ADC</h3>
-<h3 id="strain-bridge">Strain Bridge</h3>
 <h2 id="power">Power</h2>
-<h2 id="schematic">Schematic</h2>
-<p><img alt="MODAQ BlackBox Schematic" src="../img/BBDAQ_Schematic_drawio.png" /></p>
 <h2 id="enclosure">Enclosure</h2>
-<h3 id="tube">tube</h3>
-<h3 id="3d-bits">3d bits</h3>
               
             </div>
           </div>
