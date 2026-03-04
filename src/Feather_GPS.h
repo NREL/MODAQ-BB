@@ -1,302 +1,46 @@
 #include <TinyGPS++.h>
 
-
-TaskHandle_t GPSWorker;
-TaskHandle_t GPSMon;
-
-
-/*
-// GPS Definitions
-#define N2222                 4
-#define RX2                   27
-#define TX2                   14
-#define GPSBaud               9600
-
-*/
-
-int WAIT_SECS = 60000; //ms for GPS to search for IDEAL fix. Defaults to TIME_TO_SLEEP - 5 seconds if less than TIME_TO_SLEEP
-
 // Module Definitions
 TinyGPSPlus gps;
-TinyGPSCustom FixType(gps, "GPGGA", 6); // grabs the fix type from $GPGGA, where 0 = no fix, 1 for GPS, 2 for DGPS
-TinyGPSCustom numSats(gps, "GPGGA", 7); // grabs the number of satellites from $GPGGA
-
 TinyGPSDate d;
 TinyGPSTime t;
 
-// HardwareSerial ss2(2);  // Create serial object for GPS on remapped UART2
-
-/*
-  Global Definitions
-*/
-//int gpsMaxAcqTime = 5; // number of seconds to allow for GPS fix on wakeup (Not used)
-int ttffThresh = 240; // if TTFF is > this value, GPS will not be powered off during next sleep cycle
-int fixCount = 0;
-int numFixes = 25;
-int wakeCycles = 0;
-int exeStart;
-int TTFFix; 
-int sats = 0;
-int idealSatCount = 5;
-int rtcUpdateInterval = 24;
-int lastUpdate = 0;
-
-
-bool GPSdata = false;
-bool fixOK = false;
-bool firstGoodFix = true;
-
-String numSatsV;
-String FixTypeV;
-String hold;
-
-
-/*
-    Function Definitions
-*/
-
-
-void GPSWorkerFunc(void * parameter) {
-  // GPS Worker
-  
-  unsigned long loopStart = millis();
-  //gps = TinyGPSPlus();
-  while (true) {
-
-    uint32_t notificationValue;
-    static int ms = 500;
-    unsigned long start = millis();
-
-    if (xSemaphoreTake( serialSemaphore, (TickType_t) 1000) == pdTRUE) {
-      do
-      {
-        while (GPS.available()){
-          gps.encode(GPS.read());
-        } 
-      }
-      while (millis() - start < ms);
-      xSemaphoreGive(serialSemaphore);
-
-      // BUG FIX: Cache isUpdated() result — calling it consumes the flag,
-      // so a second call in the same iteration always returns false.
-      // Use isValid() for the timeout fallback since we just need any recent fix.
-      bool locationUpdated = gps.location.isUpdated();
-      int satCount = gps.satellites.value();
-
-      #ifdef DEBUG_GPS
-        Serial.print("GPS Worker Searching for Fix - ");
-        Serial.print("Location Age: ");
-        Serial.print(gps.location.age());
-        Serial.print(" | Number of Satellites: ");
-        Serial.print(satCount);
-        Serial.print(" | sentenceWithFix: ");
-        Serial.print(gps.sentencesWithFix());
-        Serial.print(" | locationUpdated: ");
-        Serial.print(locationUpdated);
-        Serial.print(" | Time in Loop: ");
-        Serial.print(( millis() - loopStart) / 1000);
-        Serial.println(" s");
-        toLogFile(SD, logFile, "GPS Worker Searching for Fix");
-
-      #endif
-      
-      if (locationUpdated && satCount > 5) { 
-        xTaskNotify(GPSMon, 0, eSetValueWithOverwrite);
-        vTaskDelay(10);
-        if (xTaskNotifyWait(0, 0, &notificationValue, pdMS_TO_TICKS(60000))) {
-          vTaskDelete(NULL);  // Use NULL to delete current task
-        }
-      } 
-      else if (millis() - loopStart > WAIT_SECS) {
-        if (gps.location.isValid() && satCount > 0) {
-          xTaskNotify(GPSMon, 1, eSetValueWithOverwrite);
-          vTaskDelay(10);
-          if (xTaskNotifyWait(0, 0, &notificationValue, pdMS_TO_TICKS(60000))) {
-            vTaskDelete(NULL);  // Use NULL to delete current task
-          }
-        }  
-        else {
-          xTaskNotify(GPSMon, -1, eSetValueWithOverwrite);
-          vTaskDelay(10);
-          if (xTaskNotifyWait(0, 0, &notificationValue, pdMS_TO_TICKS(60000))) {
-            vTaskDelete(NULL);  // Use NULL to delete current task
-          }
-        }
-      }
-    }
-  vTaskDelay(50);
-  }
-}
-
-/*
-    GPS Worker Call Task Handle
-*/
-
-void Task_GPSWorker() {
-
-  // if app produces kernal panics, increase the stack size in the xTaskCreate function
-  xTaskCreatePinnedToCore(
-    GPSWorkerFunc, /* Function to implement the task */
-    "GPSWorker", /* Name of the task */
-    20000, /* Stack size in words */
-    NULL, /* Task input parameter */
-    1, /* Priority of the task */
-    &GPSWorker, /* Task handle. */
-    1); /* Core where the task should run */
-}
-
-void GPSMonitorFunc(void * parameter) {
-
-
-  GPS.sendCommand("");
-  vTaskDelay(250);
-  
-  Task_GPSWorker();
-  exeStart = millis();
-  uint32_t notificationValue = -1;
+void saveGPSData(){
+  d = gps.date;
+  t = gps.time;
+  // Adjust the RTC based on the time from the GPS
+  rtc.adjust(DateTime(d.year(), d.month(), d.day(), t.hour(), t.minute(), t.second()));
 
   char sz[32];
   char dz[32];
-          
-  if (xTaskNotifyWait(0, 0, &notificationValue, pdMS_TO_TICKS(300000))) {
   
-    // #ifdef DEBUG_GPS
-    //   Serial.print("Location Age: ");
-    //   Serial.print(gps.location.age());
-    //   Serial.print(" | Number of Satellites: ");
-    //   Serial.print(gps.satellites.value());
-    //   Serial.print(" | sentenceWithFix: ");
-    //   Serial.print(gps.sentencesWithFix());
-    //   Serial.println(" s");
-    // #endif
-      
-    switch (notificationValue) {
-      
-      case 0:
-        #ifdef DEBUG_GPS
-          Serial.println("GPS data received is IDEAL");
-          toLogFile(SD, logFile, "GPS data received is IDEAL");
-        #endif
-        d = gps.date;
-        t = gps.time;
-        setClock = true;
+  sprintf(sz, "%02d/%02d/%02d", d.month(), d.day(), d.year());
+  sprintf(dz, "%02d:%02d:%02d", t.hour(), t.minute(), t.second());
+  sprintf(gpsBuffer, "%s,%s,%3.6f,%3.6f,%d,%4.1f,%d,%2.2f,%3.2f", sz, dz,
+            gps.location.lat(), gps.location.lng(), gps.location.age(), 
+            gps.altitude.meters(), gps.satellites.value(), gps.speed.knots(), 
+            gps.course.deg() 
+            );
+  appendFile(SD, gpsFile, gpsBuffer);
+}
 
 
-        sprintf(sz, "%02d/%02d/%02d", d.month(), d.day(), d.year());
-        sprintf(dz, "%02d:%02d:%02d", t.hour(), t.minute(), t.second());
-        sprintf(gpsBuffer, "%s,%s,%3.6f,%3.6f,%d,%4.1f,%d,%2.2f,%3.2f", sz, dz,
-                  gps.location.lat(), gps.location.lng(), gps.location.age(), 
-                  gps.altitude.meters(), gps.satellites.value(), gps.speed.knots(), 
-                  gps.course.deg() 
-                  );
-        #ifdef DEBUG_GPS
-          Serial.print("GPS Data Parsed: ");
-          Serial.println(gpsBuffer);
-        #endif
-
-        appendFile(SD, gpsFile, gpsBuffer);
-
-        xTaskNotify(GPSWorker, 0, eSetValueWithOverwrite);
-        
+// Collect GPS data and store in gpsBuffer
+void collectGPSData() {
+  GPS.sendCommand(""); //wake from standby 
+  timer = millis();
+  // Loop until we get an updated GPS location or we hit the GPS_FIX_TIMEOUT
+  while (GPS.available() && (millis() - timer < GPS_FIX_TIMEOUT)) {
+    if(gps.encode(GPS.read())){
+      if (gps.location.isUpdated()) {
+        // Process updated GPS data here
+        saveGPSData();
         GPS.sendCommand(PMTK_STANDBY);
-        vTaskDelay(1000);
-
-        gpsComplete = true;
-        vTaskDelay(50);
-        vTaskDelete(NULL);  // Use NULL to delete current task
-        break;  // Added missing break
-
-      case 1:
-        #ifdef DEBUG_GPS
-          Serial.println("GPS data received is NOT IDEAL");
-          toLogFile(SD, logFile, "GPS data received is NOT IDEAL");
-        #endif
-        d = gps.date;
-        t = gps.time;
-
-        sprintf(sz, "%02d/%02d/%02d", d.month(), d.day(), d.year());
-        sprintf(dz, "%02d:%02d:%02d", t.hour(), t.minute(), t.second());
-        sprintf(gpsBuffer, "%s,%s,%3.6f,%3.6f,%d,%4.1f,%d,%2.2f,%3.2f", sz, dz,
-                  gps.location.lat(), gps.location.lng(), gps.location.age(), 
-                  gps.altitude.meters(), gps.satellites.value(), gps.speed.knots(), 
-                  gps.course.deg() 
-                  );
-        
-        #ifdef DEBUG_GPS
-          Serial.print("GPS Data Parsed: ");
-          Serial.println(gpsBuffer);
-        #endif
-
-        appendFile(SD, gpsFile, gpsBuffer);
-        
-        xTaskNotify(GPSWorker, 0, eSetValueWithOverwrite);
-        
-        GPS.sendCommand(PMTK_STANDBY);
-        vTaskDelay(1000);
-        
-        gpsComplete = true;
-        vTaskDelay(50);
-        vTaskDelete(NULL);  // Use NULL to delete current task
-        break;  // Added missing break
-
-      default: 
-
-        sprintf(gpsBuffer, "No Fix ,,,,,,,,,");
-        #ifdef DEBUG_GPS
-          Serial.println("Failed To receive new GPS data");
-          Serial.println(gpsBuffer);
-          toLogFile(SD, logFile, "Failed To receive new GPS data");
-        #endif
-        
-        GPS.sendCommand(PMTK_STANDBY);
-        vTaskDelay(1000);
-        
-        xTaskNotify(GPSWorker, -1, eSetValueWithOverwrite);
-
-        gpsComplete = true;
-        vTaskDelay(50);
-        vTaskDelete(NULL);  // Use NULL to delete current task
-        break;  // Added break for completeness
+        return; // Exit after processing updated data
+      }
     }
-
- 
   }
-  else {
-      
-    sprintf(gpsBuffer, "No Fix ,,,,,,,,,");
-    
-    #ifdef DEBUG_GPS
-      Serial.println("Failed To receive new GPS data");
-      Serial.println(gpsBuffer);
-      toLogFile(SD, logFile, "Failed To receive new GPS data");
-    #endif
-
-      GPS.sendCommand(PMTK_STANDBY);
-      vTaskDelay(1000);
-
-      xTaskNotify(GPSWorker, -1, eSetValueWithOverwrite);
-
-      gpsComplete = true;
-      vTaskDelay(50);
-      vTaskDelete(NULL);  // Use NULL to delete current task
-    
-  }
-
+  sprintf(gpsBuffer, "No Fix ,,,,,,,,,");
+  GPS.sendCommand(PMTK_STANDBY);
 }
 
-
-/*
-    GPS Monitor Call Task Handle
-*/
-
-void Task_GPS_Monitor() {
-
-  xTaskCreatePinnedToCore(
-    GPSMonitorFunc, /* Function to implement the task */
-    "GPSMonitor", /* Name of the task */
-    20000, /* Stack size in words */
-    NULL, /* Task input parameter */
-    1, /* Priority of the task */
-    &GPSMon, /* Task handle. */
-    1); /* Core where the task should run */
-}

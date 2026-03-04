@@ -62,27 +62,28 @@ void appendFile(fs::FS &fs, const char *path, const char *message) {
 }
 
 void toLogFile(fs::FS &fs, const char *path, const char *message) {
+  #ifdef DEBUG
+    // Calculate proper buffer size: message length + timestamp overhead + null terminator
+    size_t msgLen = strlen(message);
+    size_t bufSize = msgLen + 64;  // 64 bytes for timestamp prefix
+    char *timestamped_message = (char*)malloc(bufSize);
+    if (timestamped_message == NULL) {
+      Serial.println("ERROR: Memory allocation failed in toLogFile()");
+      return;
+    }
+    char dateBuffer[32] = "MM/DD/YYYY";
+    char timeBuffer[32] = "hh:mm:ss";
 
-  // Calculate proper buffer size: message length + timestamp overhead + null terminator
-  size_t msgLen = strlen(message);
-  size_t bufSize = msgLen + 64;  // 64 bytes for timestamp prefix
-  char *timestamped_message = (char*)malloc(bufSize);
-  if (timestamped_message == NULL) {
-    Serial.println("ERROR: Memory allocation failed in toLogFile()");
-    return;
-  }
-  char dateBuffer[32] = "MM/DD/YYYY";
-  char timeBuffer[32] = "hh:mm:ss";
-  // BUG FIX: Acquire i2cSemaphore before accessing RTC over I2C.
-  // Without this, concurrent I2C access from worker tasks corrupts the bus and causes reboots.
-  if (xSemaphoreTake(i2cSemaphore, pdMS_TO_TICKS(1000)) == pdTRUE) {
     rtc.now().toString(dateBuffer);
     rtc.now().toString(timeBuffer);
-    xSemaphoreGive(i2cSemaphore);
-  }
-  snprintf(timestamped_message, bufSize, "[%s %s] %s", dateBuffer, timeBuffer, message);
-  appendFile(fs, path, timestamped_message);
-  free(timestamped_message);
+
+    snprintf(timestamped_message, bufSize, "[%s %s] %s", dateBuffer, timeBuffer, message);
+    appendFile(fs, path, timestamped_message);
+    
+    // Also print message to serial for real-time debugging
+    Serial.println(timestamped_message);
+    free(timestamped_message);
+  #endif
 }
 
 void combine_data_buffers() {
@@ -437,4 +438,43 @@ void parseFile(fs::FS &fs, const char *path) {
   }
   file.close();
   xSemaphoreGive(uartSemaphore);
+}
+
+void blinkGreen(int times)
+{
+  int i;
+  for (i = 0; i < times; i++)
+  {
+    digitalWrite(GLED, HIGH);
+    delay(100);
+    digitalWrite(GLED, LOW);
+    delay(100);
+  }
+}
+
+void blinkRed(int times)
+{
+  int i;
+  for (i = 0; i < times; i++)
+  {
+    digitalWrite(RLED, HIGH);
+    delay(100);
+    digitalWrite(RLED, LOW);
+    delay(100);
+  }
+}
+
+void blinkALT(int times)
+{
+  int i;
+  for (i = 0; i < times; i++)
+  {
+    digitalWrite(GLED, LOW);
+    digitalWrite(RLED, HIGH);
+    delay(100);
+    digitalWrite(GLED, HIGH);
+    digitalWrite(RLED, LOW);
+    delay(100);
+    digitalWrite(GLED, LOW);
+  }
 }

@@ -28,3 +28,25 @@ unsigned long unix(DateTime now) {
                             now.second();
   return unixTime;
 }
+
+void syncTimeWithRTC()
+{
+  DateTime now = rtc.now();
+
+  // Create time structure
+  struct tm timeinfo;
+  timeinfo.tm_year = now.year() - 1900; // Years since 1900
+  timeinfo.tm_mon = now.month() - 1;    // Months since January (0-11)
+  timeinfo.tm_mday = now.day();
+  timeinfo.tm_hour = now.hour();
+  timeinfo.tm_min = now.minute();
+  timeinfo.tm_sec = now.second();
+  timeinfo.tm_isdst = -1; // Let system determine DST
+
+  // Convert to time_t
+  time_t t = mktime(&timeinfo);
+
+  // Set system time
+  struct timeval tv = {.tv_sec = t};
+  settimeofday(&tv, NULL);
+}
