@@ -22,6 +22,7 @@ void saveGPSData(){
             gps.course.deg() 
             );
   appendFile(SD, gpsFile, gpsBuffer);
+  toLogFile(SD, logFile, gpsBuffer);
 }
 
 
@@ -30,10 +31,13 @@ void collectGPSData() {
   GPS.sendCommand(""); //wake from standby 
   timer = millis();
   // Loop until we get an updated GPS location or we hit the GPS_FIX_TIMEOUT
-  while (GPS.available() && (millis() - timer < GPS_FIX_TIMEOUT)) {
-    if(gps.encode(GPS.read())){
+  toLogFile(SD, logFile, "Searching for GPS fix...");
+  while (millis() - timer < GPS_FIX_TIMEOUT) {
+    while(GPS.available() > 0) {
+      gps.encode(GPS.read());
       if (gps.location.isUpdated()) {
         // Process updated GPS data here
+        toLogFile(SD, logFile, "GPS fix acquired");
         saveGPSData();
         GPS.sendCommand(PMTK_STANDBY);
         return; // Exit after processing updated data
@@ -41,6 +45,7 @@ void collectGPSData() {
     }
   }
   sprintf(gpsBuffer, "No Fix ,,,,,,,,,");
+  toLogFile(SD, logFile, gpsBuffer);
+  appendFile(SD, gpsFile, gpsBuffer);
   GPS.sendCommand(PMTK_STANDBY);
 }
-

@@ -34,7 +34,7 @@ const byte SAT_SLEEP = 13;
 const byte SAT_TX = 12;
 const byte SAT_RX = 27;
 SoftwareSerial IridiumSerial(SAT_RX, SAT_TX);
-IridiumSBD modem(IridiumSerial);
+IridiumSBD modem(IridiumSerial, SAT_SLEEP);
 enum SBDState
 {
   SBD_IDLE,
@@ -114,8 +114,8 @@ const char *gpsDir = "/gps_data";
 const char *satDir = "/sat_data";
 const char *logDir = "/log";
 
-const uint32_t DATA_INTERVAL = 10*60*1000; // Time to sleep between data collection periods
-const uint32_t SAT_INTERVAL = 60*60*1000; // Time to wait between satelite transmissions
+const uint32_t DATA_INTERVAL = 2*60*1000; // Time to sleep between data collection periods
+const uint32_t SAT_INTERVAL = 2*60*1000; // Time to wait between satelite transmissions
 uint32_t longSleepRemaining = SAT_INTERVAL; // Initialize long sleep remaining to the satellite transmission interval so that the first transmission occurs after the full interval has passed
 
 
@@ -198,9 +198,10 @@ void setup(){
   }
   else{
 #ifdef DEBUG
-    Serial.println("Card Mounted");
+    Serial.println("RTC Found");
 #endif
   }
+syncTimeWithRTC(); // Ensure the internal time is synced with the RTC
 
   // Store the boot time in seconds since epoch
   bootTime = rtc.now().unixtime(); 
@@ -223,6 +224,7 @@ void setup(){
   // Initialize headers for each data file with column names
   char timeBuffer[32] = "YYYYMMDD-hhmmss";
   rtc.now().toString(timeBuffer);
+  Serial.println("timeBuffer initialized with current time");
 
   sprintf(pwrFile, "%s/pwr-data-%s.csv", pwrDir, timeBuffer);
   createDir(SD, pwrDir);
@@ -242,6 +244,8 @@ void setup(){
 
   sprintf(logFile, "%s/log-file-%s.csv", logDir, timeBuffer);
   createDir(SD, logDir);
+
+  toLogFile(SD, logFile, "System Booted");
 
   // Initialize the GPS module with the appropriate settings and put it to sleep
   GPS.begin(9600);
@@ -305,25 +309,18 @@ void setup(){
   delay(1000);
   IridiumSerial.begin(19200);
 
-  // Begin satellite modem operation
-  toLogFile(SD, logFile, "Starting Iridium SBD modem initialization");
-  stateSBD = SBD_IDLE;
-  err = modem.begin();
-  if (err != ISBD_SUCCESS){
-    sprintf(logBuffer, "Iridium modem begin() failed with error code %d", err);
-    toLogFile(SD, logFile, logBuffer);
-    fault = true;
-    return;
-  }
-
   //Put satellire modem to sleep until it's time to transmit
   digitalWrite(GLED, LOW);
   digitalWrite(RLED, LOW);
-  digitalWrite(SAT_SLEEP, LOW);
+  modem.sleep();
 
 }
 
 void loop(){
+
+  digitalWrite(GLED, HIGH);
+  digitalWrite(RLED, HIGH);
+
   // If the IMU interrupt was triggered, log the event and go back to sleep without recording data 
   if(EXT_IMU_INT){
     // Reset the IMU interrupt flag and increment the wakeup count
@@ -337,18 +334,25 @@ void loop(){
   }
   // If the IMU interrupt was not triggered then collect data
   else{
-    syncTimeWithRTC(); // Ensure the internal time is synced with the RTC 
+    syncTimeWithRTC(); // Ensure the internal time is synced with the RTC
+    toLogFile(SD, logFile, "Time synced with RTC");
 
     collectGPSData(); //Stores GPS data in gpsBuffer global variable. Also updates RTC if valid fix
+
     collectPWRData(); //Stores power data in pwrBuffer global variable
+    toLogFile(SD, logFile, "Power data collected");
+
     collectIMUData(); //Stores IMU data in imuBuffer global variable
+    toLogFile(SD, logFile, "IMU data collected");
 
     if(sendSat){
     combine_data_buffers(); //Combines data from gpsBuffer, pwrBuffer, and imuBuffer into satBuffer global variable in preparation for satellite transmission
-    modem.sendSBDText(fileBuffer); // Send the data via satellite 
+    sendSatMsg(fileBuffer); //Sends the data in satBuffer via the satellite modem and logs the result
     }
-
-    if(DATA_INTERVAL < longSleepRemaining){ // If the data collection interval is less than the remaining long sleep time, then set the sleep duration to the data collection interval. Otherwise, set it to the remaining long sleep time and reset the long sleep remaining time.
+    // If the data collection interval is less than the remaining long sleep time, 
+    // then set the sleep duration to the data collection interval. 
+    // Otherwise, set it to the remaining long sleep time and reset the long sleep remaining time.
+    if(DATA_INTERVAL < longSleepRemaining){ 
       longSleepRemaining = longSleepRemaining - DATA_INTERVAL;
       durationToSleep = DATA_INTERVAL;
       sendSat = false;  
@@ -361,6 +365,8 @@ void loop(){
 
   }
   
+  digitalWrite(GLED, LOW);
+  digitalWrite(RLED, LOW);
   
   bedtime = rtc.now().unixtime(); // Record the time the device went to sleep in seconds since epoch 
   esp_sleep_enable_timer_wakeup((uint64_t)durationToSleep * uS_TO_S_FACTOR);// Set the time to sleep for

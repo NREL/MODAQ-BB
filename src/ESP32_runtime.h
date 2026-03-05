@@ -30,35 +30,20 @@ int execution_state() {
 }
 
 void appendFile(fs::FS &fs, const char *path, const char *message) {
-    // Take semaphore to prevent concurrent sd writes
-  if (xSemaphoreTake(uartSemaphore, pdMS_TO_TICKS(1000)) != pdTRUE) {
-    Serial.println("ERROR: Failed to acquire UART semaphore in appendFile()");
-    return;
-  }
-  
-  #ifdef DEBUG_FILE
-    Serial.printf("Appending to file: %s\n", path);
-  #endif
-
   File file = fs.open(path, FILE_APPEND);
   if (!file) {
-    #ifdef DEBUG_FILE
+    #ifdef DEBUG
       Serial.println("Failed to open file for appending");
     #endif
     return;
   }
   if (file.println(message)) {
-    #ifdef DEBUG_FILE
-      Serial.print("Message appended: ");
-      Serial.println(message);
-    #endif
   } else {
-    #ifdef DEBUG_FILE
+    #ifdef DEBUG
       Serial.println("Append failed");
     #endif
   }
   file.close();
-  xSemaphoreGive(uartSemaphore);
 }
 
 void toLogFile(fs::FS &fs, const char *path, const char *message) {
@@ -125,11 +110,6 @@ void combine_data_buffers() {
 
 
 void listDir(fs::FS &fs, const char *dirname, uint8_t levels) {
-    // Take semaphore to prevent concurrent sd writes
-  if (xSemaphoreTake(uartSemaphore, pdMS_TO_TICKS(1000)) != pdTRUE) {
-    Serial.println("ERROR: Failed to acquire UART semaphore in listDir()");
-    return;
-  }
   
   #ifdef DEBUG_FILE
     Serial.printf("Listing directory: %s\n", dirname);
@@ -170,15 +150,9 @@ void listDir(fs::FS &fs, const char *dirname, uint8_t levels) {
     }
     file = root.openNextFile();
   }
-  xSemaphoreGive(uartSemaphore);
 }
 
 void createDir(fs::FS &fs, const char *path) {
-    // Take semaphore to prevent concurrent sd writes
-  if (xSemaphoreTake(uartSemaphore, pdMS_TO_TICKS(1000)) != pdTRUE) {
-    Serial.println("ERROR: Failed to acquire UART semaphore in createDir()");
-    return;
-  }
   #ifdef DEBUG_FILE
     Serial.printf("Creating Dir: %s\n", path);
   #endif
@@ -192,15 +166,9 @@ void createDir(fs::FS &fs, const char *path) {
       Serial.println("mkdir failed");
     #endif
   }
-  xSemaphoreGive(uartSemaphore);
 }
 
 void removeDir(fs::FS &fs, const char *path) {
-  // Take semaphore to prevent concurrent sd writes
-  if (xSemaphoreTake(uartSemaphore, pdMS_TO_TICKS(1000)) != pdTRUE) {
-    Serial.println("ERROR: Failed to acquire UART semaphore in removeDir()");
-    return;
-  }
   #ifdef DEBUG_FILE
     Serial.printf("Removing Dir: %s\n", path);
   #endif
@@ -214,16 +182,9 @@ void removeDir(fs::FS &fs, const char *path) {
       Serial.println("rmdir failed");
     #endif
   }
-  xSemaphoreGive(uartSemaphore);
 }
 
 void readFile(fs::FS &fs, const char *path) {
-  // Take semaphore to prevent concurrent sd writes
-  if (xSemaphoreTake(uartSemaphore, pdMS_TO_TICKS(1000)) != pdTRUE) {
-    Serial.println("ERROR: Failed to acquire UART semaphore in readFile()");
-    return;
-  }
-
   #ifdef DEBUG_FILE
     Serial.printf("Reading file: %s\n", path);
   #endif
@@ -242,17 +203,9 @@ void readFile(fs::FS &fs, const char *path) {
     Serial.write(file.read());
   }
   file.close();
-  xSemaphoreGive(uartSemaphore);
 }
 
 void writeFile(fs::FS &fs, const char *path, const char *message) {
-  
-  // Take semaphore to prevent concurrent sd writes
-  if (xSemaphoreTake(uartSemaphore, pdMS_TO_TICKS(1000)) != pdTRUE) {
-    Serial.println("ERROR: Failed to acquire UART semaphore in writeFile()");
-    return;
-  }
-
   #ifdef DEBUG_FILE
     Serial.printf("Writing file: %s\n", path);
   #endif
@@ -262,7 +215,6 @@ void writeFile(fs::FS &fs, const char *path, const char *message) {
     #ifdef DEBUG_FILE
       Serial.println("Failed to open file for writing");
     #endif
-    xSemaphoreGive(uartSemaphore);
     return;
   }
   if (file.print(message)) {
@@ -275,15 +227,9 @@ void writeFile(fs::FS &fs, const char *path, const char *message) {
     #endif
   }
   file.close();
-  xSemaphoreGive(uartSemaphore);
 }
 
 void renameFile(fs::FS &fs, const char *path1, const char *path2) {
-    // Take semaphore to prevent concurrent sd writes
-  if (xSemaphoreTake(uartSemaphore, pdMS_TO_TICKS(1000)) != pdTRUE) {
-    Serial.println("ERROR: Failed to acquire UART semaphore in renameFile()");
-    return;
-  }
   #ifdef DEBUG_FILE
     Serial.printf("Renaming file %s to %s\n", path1, path2);
   #endif
@@ -296,15 +242,9 @@ void renameFile(fs::FS &fs, const char *path1, const char *path2) {
       Serial.println("Rename failed");
     #endif
   }
-  xSemaphoreGive(uartSemaphore);
 }
 
 void deleteFile(fs::FS &fs, const char *path) {
-  // Take semaphore to prevent concurrent sd writes
-  if (xSemaphoreTake(uartSemaphore, pdMS_TO_TICKS(1000)) != pdTRUE) {
-    Serial.println("ERROR: Failed to acquire UART semaphore in deleteFile()");
-    return;
-  }
   #ifdef DEBUG_FILE
     Serial.printf("Deleting file: %s\n", path);
   #endif
@@ -317,16 +257,9 @@ void deleteFile(fs::FS &fs, const char *path) {
       Serial.println("Delete failed");
     #endif
   }
-  xSemaphoreGive(uartSemaphore);
 }
 
 void testFileIO(fs::FS &fs, const char *path) {
-  
-  // Take semaphore to prevent concurrent sd writes
-  if (xSemaphoreTake(uartSemaphore, pdMS_TO_TICKS(1000)) != pdTRUE) {
-    Serial.println("ERROR: Failed to acquire UART semaphore in testFileIO()");
-    return;
-  }
 
   File file = fs.open(path);
   static uint8_t buf[512];
@@ -361,7 +294,6 @@ void testFileIO(fs::FS &fs, const char *path) {
     #ifdef DEBUG_FILE
       Serial.println("Failed to open file for writing");
     #endif
-    xSemaphoreGive(uartSemaphore);
     return;
   }
 
@@ -375,7 +307,6 @@ void testFileIO(fs::FS &fs, const char *path) {
     Serial.printf("%u bytes written for %lu ms\n", 2048 * 512, end);
   #endif
   file.close();
-  xSemaphoreGive(uartSemaphore);
 }
 
 void parseCSVLine(String line) {
@@ -407,11 +338,6 @@ void parseCSVLine(String line) {
 }
 
 void parseFile(fs::FS &fs, const char *path) {
-  // Take semaphore to prevent concurrent sd writes
-  if (xSemaphoreTake(uartSemaphore, pdMS_TO_TICKS(1000)) != pdTRUE) {
-    Serial.println("ERROR: Failed to acquire UART semaphore in parseFile()");
-    return;
-  }
 
   #ifdef DEBUG_FILE
     Serial.printf("Reading file: %s\n", path);
@@ -422,7 +348,6 @@ void parseFile(fs::FS &fs, const char *path) {
     #ifdef DEBUG_FILE
       Serial.println("Failed to open file for reading");
     #endif
-    xSemaphoreGive(uartSemaphore);
     return;
   }
   String headerLine = file.readStringUntil('\n');
@@ -437,7 +362,6 @@ void parseFile(fs::FS &fs, const char *path) {
     parseCSVLine(line);      
   }
   file.close();
-  xSemaphoreGive(uartSemaphore);
 }
 
 void blinkGreen(int times)

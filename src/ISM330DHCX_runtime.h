@@ -45,8 +45,6 @@ void collectIMUData() {
     ism330dhcx.getEvent(&accel, &g, &tmp);
     lis3mdl.getEvent(&event);
 
-    xSemaphoreGive(i2cSemaphore);
-
     ax = accel.acceleration.x;
     ay = accel.acceleration.y;
     az = accel.acceleration.z;

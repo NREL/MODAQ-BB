@@ -9,7 +9,7 @@ void collectPWRData() {
     busvoltage = ina219.getBusVoltage_V();
     current_mA = ina219.getCurrent_mA();
     power_mW = ina219.getPower_mW();
-    uptime = millis() / 3600000.0; // Convert uptime to hours
+    float uptime = millis() / 3600000.0; // Convert uptime to hours
 
     rtc.now().toString(dateBuffer);
     rtc.now().toString(timeBuffer);
