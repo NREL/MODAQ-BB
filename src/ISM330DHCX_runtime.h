@@ -1,15 +1,3 @@
-#include <math.h>
-
-#define MAX(a, b) ((a) > (b) ? (a) : (b))
-#define MIN(a, b) ((a) < (b) ? (a) : (b))
-
-TaskHandle_t ACCMon;
-TaskHandle_t IMUCons;
-
-char IMUdata[128];
-
-int ISM330DHCX_Hz = 2500;
-
 void configureWakeupInterrupt_IMU() {
   // Configure the interrupt pin outputs
   ism330dhcx.configIntOutputs(true, true);
@@ -18,15 +6,29 @@ void configureWakeupInterrupt_IMU() {
   ism330dhcx.configInt1(false, false, false, false, true);
   
   // Enable wake-up detection
-  ism330dhcx.enableWakeup(true, 0, 20); //Threshold (0 to 64) = 40 * 0.0313 g = 1.252 g
+  ism330dhcx.enableWakeup(true, 20, 40); //Threshold (0 to 64) = 40 * 0.0313 g = 1.252 g
                                         //Threshold (0 to 64) = 20 * 0.0313 g = 0.626 g
                                         // The duration is set to 0, meaning the wake-up interrupt will be triggered immediately when the threshold is crossed                
 }
 
 void IRAM_ATTR wakeUpDetectedIMU() {
-  // Serial.println("Wake-up event from the IMU detected!");
-  // Add your code to handle the wake-up event here
   EXT_IMU_INT = true;
+}
+
+void clearIMUWakeInterrupt() {
+  // enableWakeup() sets LIR=1 (latched interrupt) on the ISM330DHCX.
+  // Reading ALL_INT_SRC (0x1A) clears ALL latched interrupt sources and lets INT1 return high.
+  // Reading WAKE_UP_SRC (0x1B) afterward confirms the wakeup condition is gone.
+  const uint8_t ISM330DHCX_ADDR = 0x6A;
+  uint8_t dummy;
+  Wire.beginTransmission(ISM330DHCX_ADDR);
+  Wire.write(0x1A); // ALL_INT_SRC register
+  Wire.endTransmission(false);
+  Wire.requestFrom((uint8_t)ISM330DHCX_ADDR, (uint8_t)2); // reads ALL_INT_SRC + WAKE_UP_SRC
+  while (Wire.available()) {
+    dummy = Wire.read();
+  }
+  (void)dummy; // suppress unused variable warning
 }
 
 void collectIMUData() {

@@ -28,47 +28,14 @@ Adafruit_GPS GPS(&GPSSerial); // Connect to the GPS on the hardware serial port
 int GLED = 15;
 int RLED = 4;
 
-int signalQuality = -1;
 int err;
 const byte SAT_SLEEP = 13;
 const byte SAT_TX = 12;
 const byte SAT_RX = 27;
 SoftwareSerial IridiumSerial(SAT_RX, SAT_TX);
 IridiumSBD modem(IridiumSerial, SAT_SLEEP);
-enum SBDState
-{
-  SBD_IDLE,
-  SBD_WAIT_FOR_RESPONSE,
-  SBD_TRANSMIT,
-  SBD_RECEIVE,
-  SBD_PASS
-} stateSBD;
-unsigned long lastActionTime = 0;
-// const unsigned long timeoutInterval = 5000;  // 5 seconds timeout for each step
-char sbdBuffer[100]; // Buffer to store SBD messages
-char logBuffer[64]; // Buffer for logging messages
-bool transmissionDone = false;
-int IridiumStart = 0;
-bool successfulSatTransmission = false;
-// int IridiumTimeout = 5000;  //ms for irridium send (Reduced to 5 seconds for indoor testing, revert to 180 sec)
 
-bool gpsComplete;
-bool imuComplete;
-bool pwrComplete;
-bool satComplete;
-bool tasksComplete;
-bool fault = false;
-bool setClock;
-
-SemaphoreHandle_t i2cSemaphore = NULL;
-SemaphoreHandle_t serialSemaphore = NULL;
-SemaphoreHandle_t uartSemaphore = NULL;
-SemaphoreHandle_t sdSemaphore = NULL;
-
-DateTime now;
-volatile bool EXT_RTC_INT = false;
 volatile bool EXT_IMU_INT = false;
-int shortSleep, wakeup;
 
 float busvoltage;
 float current_mA;
@@ -82,49 +49,35 @@ int imuWakeupCount = 0;
 
 float temp;
 
-QueueHandle_t IMUQueue;
 char imuBuffer[128];
-
-QueueHandle_t PWRQueue;
 char pwrBuffer[128];
-
 char gpsBuffer[128];
 char fileBuffer[256];
-char satBuffer[128];
 
+// Declare global variables for data file names
 char pwrFile[64];
-char oldpwrFile[64];
-
 char imuFile[64];
-char oldimuFile[64];
-
 char gpsFile[64];
-char oldgpsFile[64];
-
-char satFile[64];
-char oldSatFile[64];
-
 char logFile[1024];
 
-char satData[1024];
-
+// Declare data directory names
 const char *pwrDir = "/pwr_data";
 const char *imuDir = "/imu_data";
 const char *gpsDir = "/gps_data";
-const char *satDir = "/sat_data";
 const char *logDir = "/log";
 
-const uint32_t DATA_INTERVAL = 2*60*1000; // Time to sleep between data collection periods
-const uint32_t SAT_INTERVAL = 2*60*1000; // Time to wait between satelite transmissions
+const uint32_t DATA_INTERVAL = 20; // Time to sleep between data collection periods (seconds)
+const uint32_t SAT_INTERVAL = 60; // Time to wait between satelite transmissions (seconds)
 uint32_t longSleepRemaining = SAT_INTERVAL; // Initialize long sleep remaining to the satellite transmission interval so that the first transmission occurs after the full interval has passed
 
+const uint64_t uS_TO_S_FACTOR = 1000000ULL;  
 
 const uint16_t NUM_PWR_SAMPLES = 5; // Number of power data samples to collect
 const uint32_t PWR_RATE = 500; // Time between PWR data readings in ms
 const uint16_t NUM_IMU_SAMPLES = 50; // Number of IMU data samples to collect
 const uint32_t IMU_RATE = 100; // Time between IMU data readings in ms
 
-const uint32_t GPS_FIX_TIMEOUT = 2*60*1000; // Time to wait for a GPS fix before falling back to best available data
+const uint32_t GPS_FIX_TIMEOUT = 5*1000; // Time to wait for a GPS fix before falling back to best available data
 
 uint32_t bedtime = 0; // Store the time when the device went to sleep
 uint32_t durationToSleep = 0; // Store the intended duration of sleep in seconds
@@ -135,37 +88,14 @@ uint32_t timer;
 
 #include "ESP32_runtime.h"
 #include "PCF8523_runtime.h"
-#include "LIS3MDL_runtime.h"
 #include "ISM330DHCX_runtime.h"
 #include "INA219_runtime.h"
 #include "Feather_GPS.h"
 #include "IRIDIUM_runtime.h"
 
-
-
-const uint64_t uS_TO_S_FACTOR = 1000000ULL;                     /* Conversion factor for micro seconds to seconds */
-const int TIME_TO_SLEEP = 600;                                  /* Time ESP32 will go to sleep for Data Colection (in seconds) */
-const uint8_t EXT_RTC_COUNTDOWN_TIMER = 1;                     // external RTC sleep timer(Must be < 255)
-PCF8523TimerClockFreq countdown_unit = PCF8523_FrequencyHour; // Set the countdown timer frequency to 1 hour
-const unsigned long SAT_TRANSMISSION_COOLDOWN = 10*60*1000; // Minimum time between satellite transmissions in ms
-unsigned long lastSatelliteTransmissionTime = 0;
-
-char datafile[] = "";
-
-const bool GPSECHO = false;
-
-
 uint32_t bootTime = 0; // Store the boot time in seconds since epoch
 
-uint32_t ulNotificationValue;
-
 const int IMUInterruptPin = 14;
-
-const int RTCInterruptPin = 32;
-esp_sleep_ext1_wakeup_mode_t wakeup_mode = ESP_EXT1_WAKEUP_ALL_LOW; // Wake up on any high level on the selected pin(s)
-volatile bool countdownInterruptTriggered = false;
-volatile int numCountdownInterrupts = 0;
-
 
 void setup(){
   // Set GPIO pins for LEDs as outputs and turn them on
@@ -193,7 +123,6 @@ void setup(){
 #ifdef DEBUG
     Serial.println("Couldn't find RTC");
 #endif
-    fault = true;
     return;
   }
   else{
@@ -211,7 +140,6 @@ syncTimeWithRTC(); // Ensure the internal time is synced with the RTC
 #ifdef DEBUG
     Serial.println("Card Mount Failed");
 #endif
-    fault = true;
     return;
   }
   else{
@@ -238,10 +166,6 @@ syncTimeWithRTC(); // Ensure the internal time is synced with the RTC
   createDir(SD, gpsDir);
   writeFile(SD, gpsFile, "Date, Time, Latitude, Longitude, Location Age, Altitude (m), Satellite Count, Speed (knots), Course (deg)\n");
 
-  sprintf(satFile, "%s/sat-data-%s.csv", satDir, timeBuffer);
-  createDir(SD, satDir);
-  writeFile(SD, satFile, "SatMsgSuccess?, Date, Time, Latitude, Longitude, Location Age, Altitude (m), Satellite Count, Speed (knots), Course (deg), Date, Time, Ax (m/s^2), Ay (m/s^2), Az (m/s^2), Gx (/s), Gy (/s), Gz (/s), Mx (T), My (T), Mz (T), Temp (C), IMU Wakeup Count, Date, Time, Voltage (V), Current (mA), Power (mW), Uptime (hrs)\n");
-
   sprintf(logFile, "%s/log-file-%s.csv", logDir, timeBuffer);
   createDir(SD, logDir);
 
@@ -264,7 +188,6 @@ syncTimeWithRTC(); // Ensure the internal time is synced with the RTC
   // Initialize the INA219 power sensor and log if it is not detected
   if (!ina219.begin()){
     toLogFile(SD, logFile, "Failed to find INA219 chip");
-    fault = true;
   }
   else{
     toLogFile(SD, logFile, "Adafruit INA219 Test Success");
@@ -273,7 +196,6 @@ syncTimeWithRTC(); // Ensure the internal time is synced with the RTC
   // Initialize the LIS3MDL magnetometer sensor and log if it is not detected
   if (!lis3mdl.begin_I2C()){ // hardware I2C mode, can pass in address & alt Wire
     toLogFile(SD, logFile, "Failed to find LIS3MDL chip");
-    fault = true;
   }
   else{
     // Log successful initialization and the default settings for the magnetometer
@@ -287,7 +209,6 @@ syncTimeWithRTC(); // Ensure the internal time is synced with the RTC
   // Initialize the ISM330DHCX IMU sensor and log if it is not detected
   if (!ism330dhcx.begin_I2C()){ // hardware I2C mode, can pass in address & alt Wire
     toLogFile(SD, logFile, "Failed to find ism330dhcx chip");
-    fault = true;
   }
   else{
     // Log successful initialization and the default settings for the IMU
@@ -314,9 +235,45 @@ syncTimeWithRTC(); // Ensure the internal time is synced with the RTC
   digitalWrite(RLED, LOW);
   modem.sleep();
 
+  // Log reset reason to help diagnose reboots
+  const char* resetReasonStr;
+  esp_reset_reason_t resetReason2 = esp_reset_reason();
+  switch (resetReason2) {
+    case ESP_RST_POWERON:   resetReasonStr = "Power-on"; break;
+    case ESP_RST_SW:        resetReasonStr = "Software reset"; break;
+    case ESP_RST_PANIC:     resetReasonStr = "Exception/panic"; break;
+    case ESP_RST_INT_WDT:   resetReasonStr = "Interrupt watchdog"; break;
+    case ESP_RST_TASK_WDT:  resetReasonStr = "Task watchdog"; break;
+    case ESP_RST_WDT:       resetReasonStr = "Other watchdog"; break;
+    case ESP_RST_DEEPSLEEP: resetReasonStr = "Deep sleep"; break;
+    case ESP_RST_BROWNOUT:  resetReasonStr = "Brownout"; break;
+    default:                resetReasonStr = "Unknown"; break;
+  }
+  sprintf(fileBuffer, "Reset reason: %s", resetReasonStr);
+  toLogFile(SD, logFile, fileBuffer);
+
 }
 
 void loop(){
+
+  // Log why we woke up to distinguish timer wakes from IMU-triggered wakes.
+  esp_sleep_wakeup_cause_t wakeupCause = esp_sleep_get_wakeup_cause();
+  switch (wakeupCause) {
+    case ESP_SLEEP_WAKEUP_TIMER:
+      toLogFile(SD, logFile, "Wake cause: TIMER");
+      break;
+    case ESP_SLEEP_WAKEUP_EXT1:
+      toLogFile(SD, logFile, "Wake cause: EXT1 (IMU pin)");
+      break;
+    case ESP_SLEEP_WAKEUP_UNDEFINED:
+      toLogFile(SD, logFile, "Wake cause: UNDEFINED (initial boot or reset)");
+      break;
+    default:
+      snprintf(fileBuffer, sizeof(fileBuffer), "Wake cause: %d", (int)wakeupCause);
+      toLogFile(SD, logFile, fileBuffer);
+      break;
+  }
+
 
   digitalWrite(GLED, HIGH);
   digitalWrite(RLED, HIGH);
@@ -326,6 +283,12 @@ void loop(){
     // Reset the IMU interrupt flag and increment the wakeup count
     EXT_IMU_INT = false;
     imuWakeupCount++;
+    clearIMUWakeInterrupt(); // Read ALL_INT_SRC + WAKE_UP_SRC to release LIR latch and let INT1 return high
+    snprintf(fileBuffer, sizeof(fileBuffer), "IMU INT pin after latch clear: %d", digitalRead(IMUInterruptPin));
+    toLogFile(SD, logFile, fileBuffer);
+    collectIMUData(); //Stores IMU data in imuBuffer global variable
+    toLogFile(SD, logFile, "IMU Event Triggered - data collected");
+
     //Set the duration to sleep based on the previous duration to sleep and the time interupted. 
     durationToSleep = durationToSleep - (rtc.now().unixtime() - bedtime);
     if (durationToSleep < 1) { //Dont allow negative sleep times
@@ -356,11 +319,15 @@ void loop(){
       longSleepRemaining = longSleepRemaining - DATA_INTERVAL;
       durationToSleep = DATA_INTERVAL;
       sendSat = false;  
+      sprintf(fileBuffer, "Next sleep duration set to data collection interval: %d seconds. Long sleep remaining: %d seconds", durationToSleep, longSleepRemaining);
+      toLogFile(SD, logFile, fileBuffer);
     }
     else{
-      longSleepRemaining = SAT_INTERVAL;
       durationToSleep = longSleepRemaining;
+      longSleepRemaining = SAT_INTERVAL;
       sendSat = true; 
+      sprintf(fileBuffer, "Next sleep duration set to long sleep remaining: %d seconds", durationToSleep);
+      toLogFile(SD, logFile, fileBuffer);
     }
 
   }
@@ -368,11 +335,43 @@ void loop(){
   digitalWrite(GLED, LOW);
   digitalWrite(RLED, LOW);
   
-  bedtime = rtc.now().unixtime(); // Record the time the device went to sleep in seconds since epoch 
-  esp_sleep_enable_timer_wakeup((uint64_t)durationToSleep * uS_TO_S_FACTOR);// Set the time to sleep for
-  esp_sleep_enable_ext1_wakeup((1ULL << 14), ESP_EXT1_WAKEUP_ALL_LOW);  // Enable wakeup from imu interupt 
-  esp_light_sleep_start();  // Put the device to sleep
+  // Record the time the device went to sleep in seconds since epoch 
+  bedtime = rtc.now().unixtime(); 
+
+  // Set the time to sleep for
+  err = esp_sleep_enable_timer_wakeup((uint64_t)durationToSleep * uS_TO_S_FACTOR);
+  if(err == ESP_OK){
+    sprintf(fileBuffer, "Timer wakeup enabled");
+    toLogFile(SD, logFile, fileBuffer);
+  }
+  else{
+    sprintf(fileBuffer, "Error enabling timer wakeup: %d", err);
+    toLogFile(SD, logFile, fileBuffer);
+  }
   
+  // Enable wakeup from imu interrupt
+  err = esp_sleep_enable_ext1_wakeup((1ULL << IMUInterruptPin), ESP_EXT1_WAKEUP_ALL_LOW); 
+  if(err == ESP_OK){
+    sprintf(fileBuffer, "EXT1 wakeup enabled");
+    toLogFile(SD, logFile, fileBuffer);
+  }
+  else{
+    sprintf(fileBuffer, "Error enabling EXT1 wakeup: %d", err);
+    toLogFile(SD, logFile, fileBuffer);
+  }
+
+  Serial.flush(); // Drain the USB-CDC TX buffer before light sleep; otherwise esp_light_sleep_start() blocks waiting for pending serial transactions
+
+  // Put the device to sleep
+  err = esp_light_sleep_start();  
+  if(err == ESP_OK){
+    sprintf(fileBuffer, "Device entered light sleep");
+    toLogFile(SD, logFile, fileBuffer);
+  }
+  else{
+    sprintf(fileBuffer, "Error entering light sleep: %d", err);
+    toLogFile(SD, logFile, fileBuffer);
+  }
 // ---------- END ---------- //
 
 }

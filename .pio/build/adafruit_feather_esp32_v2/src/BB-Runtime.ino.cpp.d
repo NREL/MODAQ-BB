@@ -156,7 +156,7 @@
  C:/Users/ccandon/Documents/Arduino/libraries/Adafruit_LSM6DS/Adafruit_LSM6DS.h \
  C:/Users/ccandon/Documents/Arduino/libraries/RTClib/src/RTClib.h \
  C:/Users/ccandon/Documents/Arduino/libraries/Iridium_SBD/src/IridiumSBD.h \
- src/ESP32_runtime.h src/PCF8523_runtime.h src/LIS3MDL_runtime.h \
- src/ISM330DHCX_runtime.h src/INA219_runtime.h src/Feather_GPS.h \
+ src/ESP32_runtime.h src/PCF8523_runtime.h src/ISM330DHCX_runtime.h \
+ src/INA219_runtime.h src/Feather_GPS.h \
  C:/Users/ccandon/Documents/Arduino/libraries/TinyGPSPlus/src/TinyGPS++.h \
  src/IRIDIUM_runtime.h
