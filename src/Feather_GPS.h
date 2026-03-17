@@ -60,7 +60,6 @@ void GPSWorkerFunc(void * parameter) {
   // GPS Worker
   
   unsigned long loopStart = millis();
-  gps = TinyGPSPlus();
   while (true) {
 
     uint32_t notificationValue;
@@ -99,8 +98,7 @@ void GPSWorkerFunc(void * parameter) {
 
       #endif
       
-      if (gps.location.isUpdated(),
-          gps.satellites.value() > 5) {
+      if (gps.location.isUpdated() && gps.satellites.value() > 5) {
           
         xTaskNotify(GPSMon, 0, eSetValueWithOverwrite);
         vTaskDelay(10);
@@ -109,8 +107,7 @@ void GPSWorkerFunc(void * parameter) {
         }
       } 
       else if (millis() - loopStart > WAIT_SECS) {
-        if (gps.location.isUpdated() &&
-                  gps.satellites.value() > 0) {
+        if (gps.location.isUpdated() && gps.satellites.value() > 0) {
           xTaskNotify(GPSMon, 1, eSetValueWithOverwrite);
           vTaskDelay(10);
           if (xTaskNotifyWait(0, 0, &notificationValue, pdMS_TO_TICKS(60000))) {
@@ -213,6 +210,7 @@ void GPSMonitorFunc(void * parameter) {
         gpsComplete = true;
         vTaskDelay(50);
         vTaskDelete(GPSMon);
+        break;
 
       case 1:
         #ifdef DEBUG_GPS
@@ -245,10 +243,11 @@ void GPSMonitorFunc(void * parameter) {
         gpsComplete = true;
         vTaskDelay(50);
         vTaskDelete(GPSMon);
+        break;
 
       default: 
 
-        sprintf(gpsBuffer, "No Fix ,,,,,,,,,\n");
+        sprintf(gpsBuffer, "No Fix ,,,,,,,,,");
         #ifdef DEBUG_GPS
           Serial.println("Failed To receive new GPS data");
           Serial.println(gpsBuffer);
@@ -269,12 +268,12 @@ void GPSMonitorFunc(void * parameter) {
   }
   else {
       
-    sprintf(gpsBuffer, "No Fix ,,,,,,,,,\n");
+    sprintf(gpsBuffer, "No Fix ,,,,,,,,,");
     
     #ifdef DEBUG_GPS
       Serial.println("Failed To receive new GPS data");
       Serial.println(gpsBuffer);
-      appendFile(SD, logFile, "Failed To receive new GPS data\n");
+      appendFile(SD, logFile, "Failed To receive new GPS data");
     #endif
 
       GPS.sendCommand(PMTK_STANDBY);
