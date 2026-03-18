@@ -87,14 +87,11 @@ void GPSWorkerFunc(void * parameter) {
         Serial.print(" | Time in Loop: ");
         Serial.print(( millis() - loopStart) / 1000);
         Serial.println(" s");
-        appendFile(SD, logFile, "GPS Worker Searching for Fix");
+        logMessage("GPS Worker Searching for Fix");
         
         UBaseType_t freeHeap = uxTaskGetStackHighWaterMark(NULL);
         Serial.print("GPS Worker Free Heap: ");
         Serial.println(freeHeap);
-        char buffer[64];
-        snprintf(buffer, sizeof(buffer), "GPS Worker Free Heap: %i", freeHeap);
-        appendFile(SD, logFile, buffer);
 
       #endif
       
@@ -172,8 +169,6 @@ void GPSMonitorFunc(void * parameter) {
       UBaseType_t freeHeap = uxTaskGetStackHighWaterMark(NULL);
       Serial.print("GPS Monitor Free Heap: ");
       Serial.println(freeHeap);
-      appendFile(SD, logFile, "GPS Monitor Free Heap:");
-      appendFile(SD, logFile, String(freeHeap).c_str());
     #endif
       
     switch (notificationValue) {
@@ -181,7 +176,7 @@ void GPSMonitorFunc(void * parameter) {
       case 0:
         #ifdef DEBUG_GPS
           Serial.println("GPS data received is IDEAL");
-          appendFile(SD, logFile, "GPS data received is IDEAL");
+          logMessage("GPS data received is IDEAL");
         #endif
         d = gps.date;
         t = gps.time;
@@ -214,8 +209,7 @@ void GPSMonitorFunc(void * parameter) {
 
       case 1:
         #ifdef DEBUG_GPS
-          Serial.println("GPS data received is NOT IDEAL");
-          appendFile(SD, logFile, "GPS data received is NOT IDEAL");
+          logMessage("GPS data received is NOT IDEAL");
         #endif
         d = gps.date;
         t = gps.time;
@@ -251,7 +245,7 @@ void GPSMonitorFunc(void * parameter) {
         #ifdef DEBUG_GPS
           Serial.println("Failed To receive new GPS data");
           Serial.println(gpsBuffer);
-          appendFile(SD, logFile, "Failed To receive new GPS data");
+          logMessage("Failed To receive new GPS data");
         #endif
         
         GPS.sendCommand(PMTK_STANDBY);
@@ -273,7 +267,7 @@ void GPSMonitorFunc(void * parameter) {
     #ifdef DEBUG_GPS
       Serial.println("Failed To receive new GPS data");
       Serial.println(gpsBuffer);
-      appendFile(SD, logFile, "Failed To receive new GPS data");
+      logMessage("Failed To receive new GPS data");
     #endif
 
       GPS.sendCommand(PMTK_STANDBY);

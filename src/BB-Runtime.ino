@@ -128,7 +128,7 @@ const uint64_t uS_TO_S_FACTOR = 1000000ULL;                     /* Conversion fa
 const int TIME_TO_SLEEP = 600;                                  /* Time ESP32 will go to sleep for Data Colection (in seconds) */
 const uint8_t EXT_RTC_COUNTDOWN_TIMER = 1;                     // external RTC sleep timer(Must be < 255)
 PCF8523TimerClockFreq countdown_unit = PCF8523_FrequencyHour; // Set the countdown timer frequency to 30 minutes
-const unsigned long SAT_TRANSMISSION_COOLDOWN = 10*60*1000; // Minimum time between satellite transmissions in ms
+const unsigned long SAT_TRANSMISSION_COOLDOWN = 20*60*1000; // Minimum time between satellite transmissions in ms
 unsigned long lastSatelliteTransmissionTime = 0;
 
 char datafile[] = "";
@@ -158,8 +158,7 @@ bool prepareRtcWakeLine()
   if (digitalRead(RTCInterruptPin) == LOW)
   {
 #ifdef DEBUG_MAIN
-    Serial.println("RTC interrupt line still LOW before sleep - rearming countdown timer");
-    appendFile(SD, logFile, "RTC interrupt line still LOW before sleep - rearming countdown timer");
+    logMessage("RTC interrupt line still LOW before sleep - rearming countdown timer");
 #endif
     rtc.deconfigureAllTimers();
     rtc.enableCountdownTimer(countdown_unit, EXT_RTC_COUNTDOWN_TIMER);
@@ -378,7 +377,7 @@ void setup()
 
       sprintf(logFile, "%s/log-file-%s.csv", logDir, timeBuffer);
       createDir(SD, logDir);
-      writeFile(SD, logFile, "System Booted\nDirectories and Data Files Created");
+      writeFile(SD, logFile, "System Booted\nDirectories and Data Files Created\n");
 
       
 #ifdef DEBUG_MAIN
@@ -432,13 +431,11 @@ void loop()
   case 0:
     blinkGreen(1);
 #ifdef DEBUG_LIGHT
-    Serial.println("Start Case 0");
-    appendFile(SD, logFile, "Start Case 0");
+    logMessage("Start Case 0");
 #endif
     digitalWrite(SAT_SLEEP, HIGH);
 #ifdef DEBUG_MAIN
-    Serial.print(" -- Awoke from External RTC interrupt -- ");
-    appendFile(SD, logFile, " -- Awoke from External RTC interrupt -- ");
+    logMessage(" -- Awoke from External RTC interrupt -- ");
     if (xSemaphoreTake(i2cSemaphore, (TickType_t)10) == pdTRUE)
     {
       now = rtc.now();
@@ -468,7 +465,7 @@ void loop()
 
 #ifdef DEBUG_MAIN
       listDir(SD, "/", 0);
-      appendFile(SD, logFile, "New Data Files Created with updated timestamp");  
+      logMessage("New Data Files Created with updated timestamp");  
 #endif
       xSemaphoreGive(uartSemaphore);
     }
@@ -478,8 +475,7 @@ void loop()
     Task_GPS_Monitor();
 
 #ifdef DEBUG_MAIN
-    Serial.println("Running External RTC interrupt Loop . . . . . . ");
-    appendFile(SD, logFile, "Running External RTC interrupt Loop . . . . . . ");
+    logMessage("Running External RTC interrupt Loop . . . . . . ");
 #endif
 
     stateSBD = SBD_IDLE;
@@ -510,8 +506,7 @@ void loop()
           else
           {
 #ifdef DEBUG_MAIN
-            Serial.println("Processes have not Finished");
-            appendFile(SD, logFile, "Processes have not Finished");
+            logMessage("Processes have not Finished");
 #endif
             vTaskDelay(250);
           }
@@ -519,8 +514,7 @@ void loop()
         unsigned long currentTime = millis();
         if ((currentTime - lastSatelliteTransmissionTime) < SAT_TRANSMISSION_COOLDOWN)
         {
-          Serial.println("Satellite transmission cooldown active - skipping transmission");
-          appendFile(SD, logFile, "Satellite transmission cooldown active - skipping transmission\n");
+          logMessage("Satellite transmission cooldown active - skipping transmission\n");
           satComplete = true; // Skip the transmission and move on
         }
         else
@@ -528,21 +522,17 @@ void loop()
           err = modem.sendSBDText(fileBuffer);
           if (err != ISBD_SUCCESS)
           {
-            Serial.print("sendSBDText failed: error ");
-            Serial.println(err);
-            appendFile(SD, logFile, "sendSBDText failed: error ");
-            appendFile(SD, logFile, String(err).c_str());
+            logMessage("sendSBDText failed: error ");
+            logMessage(String(err).c_str());
             successfulSatTransmission = false;
             if (err == ISBD_SENDRECEIVE_TIMEOUT)
             {
-              Serial.println("Try again with a better view of the sky.");
-              appendFile(SD, logFile, "Try again with a better view of the sky");
+              logMessage("Try again with a better view of the sky");
             }
           }
           else
           {
-            Serial.println("Hey, it worked! - successful Sat Transmission");
-            appendFile(SD, logFile, "Hey, it worked! - successful Sat Transmission");
+            logMessage("Hey, it worked! - successful Sat Transmission");
             successfulSatTransmission = true;
             lastSatelliteTransmissionTime = millis();
           }
@@ -572,43 +562,34 @@ void loop()
     if (timeSlept < TIME_TO_SLEEP)
     {
 #ifdef DEBUG_MAIN
-      Serial.print("Sleeping for: ");
-      Serial.print(TIME_TO_SLEEP - timeSlept);
-      Serial.println(" s");
-      appendFile(SD, logFile, "Sleeping for: ");
-      appendFile(SD, logFile, String(TIME_TO_SLEEP - timeSlept).c_str());
-      appendFile(SD, logFile, " s");
+      char logBuffer[64];
+      sprintf(logBuffer, "Sleeping for: %d s", TIME_TO_SLEEP - timeSlept);
+      logMessage(logBuffer);
 #endif
       esp_sleep_enable_timer_wakeup((TIME_TO_SLEEP - timeSlept) * uS_TO_S_FACTOR);
     }
     else if ((timeSlept > TIME_TO_SLEEP) && ((timeSlept - TIME_TO_SLEEP) < TIME_TO_SLEEP))
     {
 #ifdef DEBUG_MAIN
-      Serial.print("Sleeping for: ");
-      Serial.print(timeSlept - TIME_TO_SLEEP);
-      Serial.println(" s");
-      appendFile(SD, logFile, "Sleeping for: ");
-      appendFile(SD, logFile, String(timeSlept - TIME_TO_SLEEP).c_str());
-      appendFile(SD, logFile, " s");
+      char logBuffer[64];
+      sprintf(logBuffer, "Sleeping for: %d s", timeSlept - TIME_TO_SLEEP);
+      logMessage(logBuffer);
 #endif
       esp_sleep_enable_timer_wakeup((timeSlept - TIME_TO_SLEEP) * uS_TO_S_FACTOR);
     }
     else
     {
 #ifdef DEBUG_MAIN
-      Serial.print("Sleeping for: ");
-      Serial.print(TIME_TO_SLEEP);
-      Serial.println(" s");
-      appendFile(SD, logFile, "Sleeping for: ");
-      appendFile(SD, logFile, String(TIME_TO_SLEEP).c_str());
-      appendFile(SD, logFile, " s");
+      char logBuffer[64];
+      sprintf(logBuffer, "Sleeping for: %d s", TIME_TO_SLEEP);
+      logMessage(logBuffer);
 #endif
       esp_sleep_enable_timer_wakeup(TIME_TO_SLEEP * uS_TO_S_FACTOR);
     }
     blinkRed(1);
 #ifdef DEBUG_LIGHT
     Serial.println("End Case 0");
-    appendFile(SD, logFile, "End Case 0");
+    logMessage("End Case 0");
 #endif
     break;
 
@@ -618,8 +599,7 @@ void loop()
 
     blinkALT(2);
 #ifdef DEBUG_LIGHT
-    Serial.println("Start Case 1");
-    appendFile(SD, logFile, "Start Case 1");
+    logMessage("Start Case 1");
 #endif
     if (xSemaphoreTake(i2cSemaphore, (TickType_t)10) == pdTRUE)
     {
@@ -627,8 +607,7 @@ void loop()
       xSemaphoreGive(i2cSemaphore);
     }
 #ifdef DEBUG_MAIN
-    Serial.print(" -- Awoke from IMU interrupt -- ");
-    appendFile(SD, logFile, " -- Awoke from IMU interrupt -- ");
+    logMessage(" -- Awoke from IMU interrupt -- ");
     printTime(now);
 #endif
 
@@ -639,8 +618,7 @@ void loop()
     Task_GPS_Monitor();
 
 #ifdef DEBUG_MAIN
-    Serial.println("Running IMU interrupt Loop . . . . . . ");
-    appendFile(SD, logFile, "Running IMU interrupt Loop . . . . . . ");
+    logMessage("Running IMU interrupt Loop . . . . . . ");
 #endif
 
     while (!tasksComplete)
@@ -654,8 +632,7 @@ void loop()
           if (pwrComplete && imuComplete)
           {
 #ifdef DEBUG_MAIN
-            Serial.println("Remaining Tasks Cleaned Up");
-            appendFile(SD, logFile, "Remaining Tasks Cleaned Up");
+            logMessage("Remaining Tasks Cleaned Up");
 #endif
 
             combine_data_buffers();
@@ -668,15 +645,13 @@ void loop()
           else
           {
 #ifdef DEBUG_MAIN
-            Serial.println("Processes have not Finished");
-            appendFile(SD, logFile, "Processes have not Finished");
+            logMessage("Processes have not Finished");
 #endif
             vTaskDelay(250);
           }
         }
 #ifdef DEBUG_MAIN
-        Serial.println("IMU interrupt Tasks Complete");
-        appendFile(SD, logFile, "IMU interrupt Tasks Complete");
+        logMessage("IMU interrupt Tasks Complete");
 #endif
       }
     }
@@ -690,43 +665,34 @@ void loop()
     if (timeSlept < TIME_TO_SLEEP)
     {
 #ifdef DEBUG_MAIN
-      Serial.print("Sleeping for: ");
-      Serial.print(TIME_TO_SLEEP - timeSlept);
-      Serial.println(" s");
-      appendFile(SD, logFile, "Sleeping for: ");
-      appendFile(SD, logFile, String(TIME_TO_SLEEP - timeSlept).c_str());
-      appendFile(SD, logFile, " s");
+      char logBuffer[64];
+      sprintf(logBuffer, "Sleeping for: %d s", TIME_TO_SLEEP - timeSlept);
+      logMessage(logBuffer);
 #endif
       esp_sleep_enable_timer_wakeup((TIME_TO_SLEEP - timeSlept) * uS_TO_S_FACTOR);
     }
     else if ((timeSlept > TIME_TO_SLEEP) && ((timeSlept - TIME_TO_SLEEP) < TIME_TO_SLEEP))
     {
 #ifdef DEBUG_MAIN
-      Serial.print("Sleeping for: ");
-      Serial.print(timeSlept - TIME_TO_SLEEP);
-      Serial.println(" s");
-      appendFile(SD, logFile, "Sleeping for: ");
-      appendFile(SD, logFile, String(timeSlept - TIME_TO_SLEEP).c_str());
-      appendFile(SD, logFile, " s");
+      char logBuffer[64];
+      sprintf(logBuffer, "Sleeping for: %d s", timeSlept - TIME_TO_SLEEP);
+      logMessage(logBuffer);
 #endif
+
       esp_sleep_enable_timer_wakeup((timeSlept - TIME_TO_SLEEP) * uS_TO_S_FACTOR);
     }
     else
     {
 #ifdef DEBUG_MAIN
-      Serial.print("Sleeping for: ");
-      Serial.print(TIME_TO_SLEEP);
-      Serial.println(" s");
-      appendFile(SD, logFile, "Sleeping for: ");
-      appendFile(SD, logFile, String(TIME_TO_SLEEP).c_str());
-      appendFile(SD, logFile, " s");
+      char logBuffer[64];
+      sprintf(logBuffer, "Sleeping for: %d s", TIME_TO_SLEEP);
+      logMessage(logBuffer);
 #endif
       esp_sleep_enable_timer_wakeup(TIME_TO_SLEEP * uS_TO_S_FACTOR);
     }
     blinkRed(1);
 #ifdef DEBUG_LIGHT
-    Serial.println("End Case 1");
-    appendFile(SD, logFile, "End Case 1");
+    logMessage("End Case 1");
 #endif
     break;
 
@@ -735,8 +701,7 @@ void loop()
 
     blinkGreen(1);
 #ifdef DEBUG_LIGHT
-    Serial.println("Start Case 2");
-    appendFile(SD, logFile, "Start Case 2");
+    logMessage("Start Case 2");
 #endif
     if (xSemaphoreTake(i2cSemaphore, (TickType_t)10) == pdTRUE)
     {
@@ -746,8 +711,7 @@ void loop()
     shortSleep = now.unixtime();
 
 #ifdef DEBUG_MAIN
-    Serial.print(" -- Awoke from ESP32 Internal RTC interrupt -- ");
-    appendFile(SD, logFile, " -- Awoke from ESP32 Internal RTC interrupt -- ");
+    logMessage(" -- Awoke from ESP32 Internal RTC interrupt -- ");
     printTime(now);
 #endif
 
@@ -756,8 +720,7 @@ void loop()
     Task_GPS_Monitor();
 
 #ifdef DEBUG_MAIN
-    Serial.println("Running Internal RTC interrupt Loop . . . . . . ");
-    appendFile(SD, logFile, "Running Internal RTC interrupt Loop . . . . . . ");
+    logMessage("Running Internal RTC interrupt Loop . . . . . . ");
 #endif
 
     while (!tasksComplete)
@@ -771,8 +734,7 @@ void loop()
           if (pwrComplete && imuComplete)
           {
 #ifdef DEBUG_MAIN
-            Serial.println("Remaining Tasks Cleaned Up");
-            appendFile(SD, logFile, "Remaining Tasks Cleaned Up");
+            logMessage("Remaining Tasks Cleaned Up");
 #endif
 
             combine_data_buffers();
@@ -786,15 +748,13 @@ void loop()
           {
 
 #ifdef DEBUG_MAIN
-            Serial.println("Processes have not Finished");
-            appendFile(SD, logFile, "Processes have not Finished");
+            logMessage("Processes have not Finished");
 #endif
             vTaskDelay(250);
           }
         }
 #ifdef DEBUG_MAIN
-        Serial.println("Internal RTC interrupt Tasks Complete ");
-        appendFile(SD, logFile, "Internal RTC interrupt Tasks Complete ");
+        logMessage("Internal RTC interrupt Tasks Complete ");
 #endif
       }
     }
@@ -805,18 +765,14 @@ void loop()
     }
     wakeup = now.unixtime() - shortSleep;
 #ifdef DEBUG_MAIN
-    Serial.print("Sleeping for: ");
-    Serial.print(TIME_TO_SLEEP - wakeup);
-    Serial.println(" s");
-    appendFile(SD, logFile, "Sleeping for: ");
-    appendFile(SD, logFile, String(TIME_TO_SLEEP - wakeup).c_str());
-    appendFile(SD, logFile, " s\n");
+    char logBuffer[64];
+    sprintf(logBuffer, "Sleeping for: %d s", TIME_TO_SLEEP - wakeup);
+    logMessage(logBuffer);
 #endif
     esp_sleep_enable_timer_wakeup((TIME_TO_SLEEP - wakeup) * uS_TO_S_FACTOR);
     blinkRed(1);
 #ifdef DEBUG_LIGHT
-    Serial.println("End Case 2");
-    appendFile(SD, logFile, "End Case 2\n");
+    logMessage("End Case 2");
 #endif
     break;
 
@@ -828,8 +784,7 @@ void loop()
     digitalWrite(RLED, LOW);
     vTaskDelay(5);
 #ifdef DEBUG_LIGHT
-    Serial.println("Start Default Case");
-    appendFile(SD, logFile, "Start Default Case");
+    logMessage("Start Default Case");
 #endif
 
     if (xSemaphoreTake(i2cSemaphore, (TickType_t)10) == pdTRUE)
@@ -970,8 +925,7 @@ void loop()
 #ifdef DEBUG_MAIN
     else
     {
-      Serial.println("RTC interrupt line remained LOW - skipping ext0 this cycle");
-      appendFile(SD, logFile, "RTC interrupt line remained LOW - skipping ext0 this cycle");
+      logMessage("RTC interrupt line remained LOW - skipping ext0 this cycle");
     }
 #endif
 

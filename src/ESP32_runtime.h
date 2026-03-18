@@ -30,6 +30,17 @@ int execution_state() {
 }
 
 void appendFile(fs::FS &fs, const char *path, const char *message) {
+  bool uartLocked = false;
+  if (uartSemaphore != NULL) {
+    if (xSemaphoreTake(uartSemaphore, (TickType_t)10) != pdTRUE) {
+      #ifdef DEBUG_FILE
+        Serial.println("Failed to take UART semaphore for append");
+      #endif
+      return;
+    }
+    uartLocked = true;
+  }
+
   #ifdef DEBUG_FILE
     Serial.printf("Appending to file: %s\n", path);
   #endif
@@ -39,6 +50,9 @@ void appendFile(fs::FS &fs, const char *path, const char *message) {
     #ifdef DEBUG_FILE
       Serial.println("Failed to open file for appending");
     #endif
+    if (uartLocked) {
+      xSemaphoreGive(uartSemaphore);
+    }
     return;
   }
   if (file.println(message)) {
@@ -52,6 +66,39 @@ void appendFile(fs::FS &fs, const char *path, const char *message) {
     #endif
   }
   file.close();
+
+  if (uartLocked) {
+    xSemaphoreGive(uartSemaphore);
+  }
+}
+
+void logMessage(const char *message) {
+  char timestamp[32] = "YYYY/MM/DD hh:mm:ss";
+  DateTime logTime;
+
+  if ((i2cSemaphore != NULL) && (xSemaphoreTake(i2cSemaphore, (TickType_t)10) == pdTRUE)) {
+    logTime = rtc.now();
+    xSemaphoreGive(i2cSemaphore);
+  } else {
+    logTime = rtc.now();
+  }
+
+  logTime.toString(timestamp);
+
+  char logEntry[1200];
+  int written = snprintf(logEntry, sizeof(logEntry), "%s - %s", timestamp, message);
+  if (written < 0 || written >= (int)sizeof(logEntry)) {
+    Serial.println("LOGGER ERROR: message truncated");
+    appendFile(SD, logFile, "LOGGER ERROR: message truncated");
+    return;
+  }
+
+  Serial.println(logEntry);
+  appendFile(SD, logFile, logEntry);
+}
+
+void logMessage(const String &message) {
+  logMessage(message.c_str());
 }
 
 void combine_data_buffers() {
@@ -67,7 +114,7 @@ void combine_data_buffers() {
     
     if (tmp == NULL) {
         Serial.println("ERROR: Memory allocation failed in combine_data_buffers()");
-        appendFile(SD, logFile, "ERROR: Memory allocation failed in combine_data_buffers()\n");
+        logMessage("ERROR: Memory allocation failed in combine_data_buffers()\n");
         return; // Exit early to prevent crash
     }
     
@@ -76,7 +123,7 @@ void combine_data_buffers() {
     
     if (written < 0 || written >= (int)required_size) {
         Serial.println("ERROR: Buffer overflow in combine_data_buffers()");
-        appendFile(SD, logFile, "ERROR: Buffer overflow in combine_data_buffers()\n");
+        logMessage("ERROR: Buffer overflow in combine_data_buffers()\n");
         free(tmp);
         return;
     }

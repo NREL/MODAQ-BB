@@ -51,7 +51,7 @@ void INA219_worker(void * parameter) {
           Serial.print(INA219_Hz - (millis()-ms));
           Serial.print(" - Uptime (s): ");
           Serial.println(uptime);
-          appendFile(SD, logFile, "Power Data Logged");
+          logMessage("Power Data Logged");
         #endif
 
         sprintf(pwrBuffer, "%s,%s,%4.2f,%4.2f,%4.2f,%.2f",dateBuffer, timeBuffer, busvoltage, current_mA, power_mW, uptime);
@@ -65,7 +65,7 @@ void INA219_worker(void * parameter) {
         vTaskDelay(50);
         #ifdef DEBUG_PWR
           Serial.println("stuck outer");
-          appendFile(SD, logFile, "INA219 stuck outer");
+          logMessage("INA219 stuck outer");
         #endif
       } 
     }
