@@ -126,8 +126,8 @@ const char *logDir = "/log";
 
 const uint64_t uS_TO_S_FACTOR = 1000000ULL;                     /* Conversion factor for micro seconds to seconds */
 const int TIME_TO_SLEEP = 600;                                  /* Time ESP32 will go to sleep for Data Colection (in seconds) */
-const uint8_t EXT_RTC_COUNTDOWN_TIMER = 30;                     // external RTC sleep timer(Must be < 255)
-PCF8523TimerClockFreq countdown_unit = PCF8523_FrequencyMinute; // Set the countdown timer frequency to 30 minutes
+const uint8_t EXT_RTC_COUNTDOWN_TIMER = 1;                     // external RTC sleep timer(Must be < 255)
+PCF8523TimerClockFreq countdown_unit = PCF8523_FrequencyHour; // Set the countdown timer frequency to 30 minutes
 const unsigned long SAT_TRANSMISSION_COOLDOWN = 10*60*1000; // Minimum time between satellite transmissions in ms
 unsigned long lastSatelliteTransmissionTime = 0;
 

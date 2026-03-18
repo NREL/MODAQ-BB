@@ -14,7 +14,7 @@ TaskHandle_t GPSMon;
 
 */
 
-int WAIT_SECS = 60000; //ms for GPS to search for IDEAL fix. Defaults to TIME_TO_SLEEP - 5 seconds if less than TIME_TO_SLEEP
+int WAIT_SECS = 120000; //ms for GPS to search for IDEAL fix. Defaults to TIME_TO_SLEEP - 5 seconds if less than TIME_TO_SLEEP
 
 // Module Definitions
 TinyGPSPlus gps;
