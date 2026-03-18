@@ -150,6 +150,30 @@ esp_sleep_ext1_wakeup_mode_t wakeup_mode = ESP_EXT1_WAKEUP_ALL_LOW; // Wake up o
 volatile bool countdownInterruptTriggered = false;
 volatile int numCountdownInterrupts = 0;
 
+bool prepareRtcWakeLine()
+{
+  // Clear any software-side latched interrupt indication from ISR context.
+  EXT_RTC_INT = false;
+
+  if (digitalRead(RTCInterruptPin) == LOW)
+  {
+#ifdef DEBUG_MAIN
+    Serial.println("RTC interrupt line still LOW before sleep - rearming countdown timer");
+    appendFile(SD, logFile, "RTC interrupt line still LOW before sleep - rearming countdown timer");
+#endif
+    rtc.deconfigureAllTimers();
+    rtc.enableCountdownTimer(countdown_unit, EXT_RTC_COUNTDOWN_TIMER);
+
+    // Give the RTC interrupt output time to deassert before configuring ext0 wake.
+    for (int i = 0; i < 50 && digitalRead(RTCInterruptPin) == LOW; i++)
+    {
+      delay(10);
+    }
+  }
+
+  return digitalRead(RTCInterruptPin) == HIGH;
+}
+
 
 void setup()
 {
@@ -381,15 +405,22 @@ void loop()
   bool summarizeNow = false;
   int timeSlept;
   int state = execution_state();
-  if (EXT_RTC_INT)
+  bool rtcInterruptSeen = EXT_RTC_INT;
+  bool imuInterruptSeen = EXT_IMU_INT;
+  EXT_RTC_INT = false;
+  EXT_IMU_INT = false;
+
+  // Prefer hardware wake reason; use ISR flags only as fallback when undefined.
+  if (state < 0)
   {
-    EXT_RTC_INT = false;
-    state = 0;
-  }
-  else if (EXT_IMU_INT)
-  {
-    EXT_IMU_INT = false;
-    state = 1;
+    if (rtcInterruptSeen)
+    {
+      state = 0;
+    }
+    else if (imuInterruptSeen)
+    {
+      state = 1;
+    }
   }
 
   // State machine to handle different wake up conditions
@@ -503,8 +534,10 @@ void loop()
             appendFile(SD, logFile, String(err).c_str());
             successfulSatTransmission = false;
             if (err == ISBD_SENDRECEIVE_TIMEOUT)
+            {
               Serial.println("Try again with a better view of the sky.");
               appendFile(SD, logFile, "Try again with a better view of the sky");
+            }
           }
           else
           {
@@ -928,7 +961,20 @@ void loop()
   {
     digitalWrite(GLED, LOW);
     digitalWrite(RLED, LOW);
-    esp_sleep_enable_ext0_wakeup(GPIO_NUM_32, 0); // Wake up when GPIO 32 goes LOW
+
+    bool rtcLineReadyForSleep = prepareRtcWakeLine();
+    if (rtcLineReadyForSleep)
+    {
+      esp_sleep_enable_ext0_wakeup(GPIO_NUM_32, 0); // Wake up when GPIO 32 goes LOW
+    }
+#ifdef DEBUG_MAIN
+    else
+    {
+      Serial.println("RTC interrupt line remained LOW - skipping ext0 this cycle");
+      appendFile(SD, logFile, "RTC interrupt line remained LOW - skipping ext0 this cycle");
+    }
+#endif
+
     esp_sleep_enable_ext1_wakeup((1ULL << 14), ESP_EXT1_WAKEUP_ALL_LOW);
     esp_light_sleep_start();
   }
