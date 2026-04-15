@@ -66,8 +66,8 @@ const char *imuDir = "/imu_data";
 const char *gpsDir = "/gps_data";
 const char *logDir = "/log";
 
-const uint32_t DATA_INTERVAL = 20; // Time to sleep between data collection periods (seconds)
-const uint32_t SAT_INTERVAL = 60; // Time to wait between satelite transmissions (seconds)
+const uint32_t DATA_INTERVAL = 600; // Time to sleep between data collection periods (seconds)
+const uint32_t SAT_INTERVAL = 3600; // Time to wait between satelite transmissions (seconds)
 uint32_t longSleepRemaining = SAT_INTERVAL; // Initialize long sleep remaining to the satellite transmission interval so that the first transmission occurs after the full interval has passed
 
 const uint64_t uS_TO_S_FACTOR = 1000000ULL;  
@@ -77,7 +77,7 @@ const uint32_t PWR_RATE = 500; // Time between PWR data readings in ms
 const uint16_t NUM_IMU_SAMPLES = 50; // Number of IMU data samples to collect
 const uint32_t IMU_RATE = 100; // Time between IMU data readings in ms
 
-const uint32_t GPS_FIX_TIMEOUT = 5*1000; // Time to wait for a GPS fix before falling back to best available data
+const uint32_t GPS_FIX_TIMEOUT = 120*1000; // Time in ms to wait for a GPS fix before falling back to best available data
 
 uint32_t bedtime = 0; // Store the time when the device went to sleep
 uint32_t durationToSleep = 0; // Store the intended duration of sleep in seconds
@@ -252,6 +252,9 @@ syncTimeWithRTC(); // Ensure the internal time is synced with the RTC
   sprintf(fileBuffer, "Reset reason: %s", resetReasonStr);
   toLogFile(SD, logFile, fileBuffer);
 
+  // Clear any stale IMU interrupt flag that may have been set by the ISR
+  // firing during setup (e.g., from configureWakeupInterrupt_IMU).
+  EXT_IMU_INT = false;
 }
 
 void loop(){
@@ -262,8 +265,8 @@ void loop(){
     case ESP_SLEEP_WAKEUP_TIMER:
       toLogFile(SD, logFile, "Wake cause: TIMER");
       break;
-    case ESP_SLEEP_WAKEUP_EXT1:
-      toLogFile(SD, logFile, "Wake cause: EXT1 (IMU pin)");
+    case ESP_SLEEP_WAKEUP_EXT0:
+      toLogFile(SD, logFile, "Wake cause: EXT0 (IMU pin)");
       break;
     case ESP_SLEEP_WAKEUP_UNDEFINED:
       toLogFile(SD, logFile, "Wake cause: UNDEFINED (initial boot or reset)");
@@ -278,21 +281,24 @@ void loop(){
   digitalWrite(GLED, HIGH);
   digitalWrite(RLED, HIGH);
 
-  // If the IMU interrupt was triggered, log the event and go back to sleep without recording data 
+  // If the IMU interrupt was triggered, log the event, record IMU data, and go back to sleep without recording other data 
   if(EXT_IMU_INT){
     // Reset the IMU interrupt flag and increment the wakeup count
     EXT_IMU_INT = false;
     imuWakeupCount++;
-    clearIMUWakeInterrupt(); // Read ALL_INT_SRC + WAKE_UP_SRC to release LIR latch and let INT1 return high
+    //clearIMUWakeInterrupt(); // Read ALL_INT_SRC + WAKE_UP_SRC to release LIR latch and let INT1 return high
     snprintf(fileBuffer, sizeof(fileBuffer), "IMU INT pin after latch clear: %d", digitalRead(IMUInterruptPin));
     toLogFile(SD, logFile, fileBuffer);
     collectIMUData(); //Stores IMU data in imuBuffer global variable
     toLogFile(SD, logFile, "IMU Event Triggered - data collected");
 
     //Set the duration to sleep based on the previous duration to sleep and the time interupted. 
-    durationToSleep = durationToSleep - (rtc.now().unixtime() - bedtime);
-    if (durationToSleep < 1) { //Dont allow negative sleep times
-      durationToSleep = 1;
+    uint32_t elapsed = rtc.now().unixtime() - bedtime;
+    if (elapsed >= durationToSleep) {
+      durationToSleep = 1; // Already exceeded planned sleep time
+    }
+    else {
+      durationToSleep = durationToSleep - elapsed;
     }
   }
   // If the IMU interrupt was not triggered then collect data
@@ -309,8 +315,8 @@ void loop(){
     toLogFile(SD, logFile, "IMU data collected");
 
     if(sendSat){
-    combine_data_buffers(); //Combines data from gpsBuffer, pwrBuffer, and imuBuffer into satBuffer global variable in preparation for satellite transmission
-    sendSatMsg(fileBuffer); //Sends the data in satBuffer via the satellite modem and logs the result
+      combine_data_buffers(); //Combines data from gpsBuffer, pwrBuffer, and imuBuffer into satBuffer global variable in preparation for satellite transmission
+      sendSatMsg(fileBuffer); //Sends the data in satBuffer via the satellite modem and logs the result
     }
     // If the data collection interval is less than the remaining long sleep time, 
     // then set the sleep duration to the data collection interval. 
@@ -350,13 +356,13 @@ void loop(){
   }
   
   // Enable wakeup from imu interrupt
-  err = esp_sleep_enable_ext1_wakeup((1ULL << IMUInterruptPin), ESP_EXT1_WAKEUP_ALL_LOW); 
+  err = esp_sleep_enable_ext0_wakeup((gpio_num_t)IMUInterruptPin, 0); // 0 = wake on LOW
   if(err == ESP_OK){
-    sprintf(fileBuffer, "EXT1 wakeup enabled");
+    sprintf(fileBuffer, "EXT0 wakeup enabled");
     toLogFile(SD, logFile, fileBuffer);
   }
   else{
-    sprintf(fileBuffer, "Error enabling EXT1 wakeup: %d", err);
+    sprintf(fileBuffer, "Error enabling EXT0 wakeup: %d", err);
     toLogFile(SD, logFile, fileBuffer);
   }
 
